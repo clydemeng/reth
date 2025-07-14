@@ -35,6 +35,11 @@ reth-tasks.workspace = true
 reth-node-ethereum.workspace = true
 reth-ethereum-primitives.workspace = true
 reth-primitives-traits.workspace = true
+reth_cli_commands = { package = "reth-cli-commands", path = "../cli/commands" }
+reth_config       = { package = "reth-config", path = "../config" }
+reth_primitives   = { package = "reth-primitives", path = "../primitives" }
+reth_db_common    = { package = "reth-db-common", path = "../storage/db-common" }
+reth_consensus    = { package = "reth-consensus", path = "../consensus/consensus" }
 
 revm.workspace = true
 tempfile.workspace = true
