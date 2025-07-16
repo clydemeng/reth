@@ -59,6 +59,8 @@ pub struct ExecutionOutcome<T = reth_ethereum_primitives::Receipt> {
     /// A transaction may have zero or more requests, so the length of the inner vector is not
     /// guaranteed to be the same as the number of transactions.
     pub requests: Vec<Requests>,
+    /// The collection of snapshots.
+    pub snapshots: Vec<(BlockNumber, Vec<u8>)>,
 }
 
 impl<T> Default for ExecutionOutcome<T> {
@@ -68,6 +70,7 @@ impl<T> Default for ExecutionOutcome<T> {
             receipts: Default::default(),
             first_block: Default::default(),
             requests: Default::default(),
+            snapshots: Default::default(),
         }
     }
 }
@@ -83,7 +86,7 @@ impl<T> ExecutionOutcome<T> {
         first_block: BlockNumber,
         requests: Vec<Requests>,
     ) -> Self {
-        Self { bundle, receipts, first_block, requests }
+        Self { bundle, receipts, first_block, requests, snapshots: Vec::new() }
     }
 
     /// Creates a new `ExecutionOutcome` from initialization parameters.
@@ -125,7 +128,7 @@ impl<T> ExecutionOutcome<T> {
             contracts_init.into_iter().map(|(code_hash, bytecode)| (code_hash, bytecode.0)),
         );
 
-        Self { bundle, receipts, first_block, requests }
+        Self { bundle, receipts, first_block, requests, snapshots: Vec::new() }
     }
 
     /// Creates a new `ExecutionOutcome` from a single block execution result.
@@ -135,6 +138,7 @@ impl<T> ExecutionOutcome<T> {
             receipts: vec![output.result.receipts],
             first_block: block_number,
             requests: vec![output.result.requests],
+            snapshots: Vec::new(),
         }
     }
 
@@ -144,12 +148,23 @@ impl<T> ExecutionOutcome<T> {
         bundle: BundleState,
         results: Vec<BlockExecutionResult<T>>,
     ) -> Self {
-        let mut value = Self { bundle, first_block, receipts: Vec::new(), requests: Vec::new() };
+        let mut value = Self { bundle, first_block, receipts: Vec::new(), requests: Vec::new(), snapshots: Vec::new() };
         for result in results {
             value.receipts.push(result.receipts);
             value.requests.push(result.requests);
         }
         value
+    }
+
+    /// Creates a new `ExecutionOutcome` that also carries snapshots (Parlia)
+    pub fn new_with_snapshots(
+        bundle: BundleState,
+        receipts: Vec<Vec<T>>,
+        first_block: BlockNumber,
+        requests: Vec<Requests>,
+        snapshots: Vec<(BlockNumber, Vec<u8>)>,
+    ) -> Self {
+        Self { bundle, receipts, first_block, requests, snapshots }
     }
 
     /// Return revm bundle state.
@@ -438,6 +453,8 @@ pub(super) mod serde_bincode_compat {
         first_block: BlockNumber,
         #[expect(clippy::owned_cow)]
         requests: Cow<'a, Vec<Requests>>,
+        #[expect(clippy::owned_cow)]
+        snapshots: Cow<'a, Vec<(BlockNumber, Vec<u8>)>>,
     }
 
     impl<'a, T> From<&'a super::ExecutionOutcome<T>> for ExecutionOutcome<'a, T>
@@ -454,6 +471,7 @@ pub(super) mod serde_bincode_compat {
                     .collect(),
                 first_block: value.first_block,
                 requests: Cow::Borrowed(&value.requests),
+                snapshots: Cow::Borrowed(&value.snapshots),
             }
         }
     }
@@ -472,6 +490,7 @@ pub(super) mod serde_bincode_compat {
                     .collect(),
                 first_block: value.first_block,
                 requests: value.requests.into_owned(),
+                snapshots: value.snapshots.into_owned(),
             }
         }
     }
@@ -541,6 +560,7 @@ pub(super) mod serde_bincode_compat {
                     receipts: vec![],
                     first_block: 0,
                     requests: vec![],
+                    snapshots: vec![],
                 },
             };
 
@@ -587,6 +607,7 @@ mod tests {
             receipts: receipts.clone(),
             requests: requests.clone(),
             first_block,
+            snapshots: vec![],
         };
 
         // Assert that creating a new ExecutionOutcome using the constructor matches exec_res
@@ -643,6 +664,7 @@ mod tests {
             receipts,
             requests: vec![],
             first_block,
+            snapshots: vec![],
         };
 
         // Test before the first block
@@ -675,6 +697,7 @@ mod tests {
             receipts,
             requests: vec![],
             first_block,
+            snapshots: vec![],
         };
 
         // Get logs for block number 123
@@ -704,6 +727,7 @@ mod tests {
             receipts,                   // Include the created receipts
             requests: vec![],           // Empty vector for requests
             first_block,                // Set the first block number
+            snapshots: vec![],
         };
 
         // Get receipts for block number 123 and convert the result into a vector
@@ -744,6 +768,7 @@ mod tests {
             receipts,                   // Include the created receipts
             requests: vec![],           // Empty vector for requests
             first_block,                // Set the first block number
+            snapshots: vec![],
         };
 
         // Assert that the length of receipts in exec_res is 1
@@ -758,6 +783,7 @@ mod tests {
             receipts: receipts_empty,   // Include the empty receipts
             requests: vec![],           // Empty vector for requests
             first_block,                // Set the first block number
+            snapshots: vec![],
         };
 
         // Assert that the length of receipts in exec_res_empty_receipts is 0
@@ -793,7 +819,7 @@ mod tests {
         // Create a ExecutionOutcome object with the created bundle, receipts, requests, and
         // first_block
         let mut exec_res =
-            ExecutionOutcome { bundle: Default::default(), receipts, requests, first_block };
+            ExecutionOutcome { bundle: Default::default(), receipts, requests, first_block, snapshots: vec![] };
 
         // Assert that the revert_to method returns true when reverting to the initial block number.
         assert!(exec_res.revert_to(123));
@@ -837,7 +863,7 @@ mod tests {
 
         // Create an ExecutionOutcome object.
         let mut exec_res =
-            ExecutionOutcome { bundle: Default::default(), receipts, requests, first_block };
+            ExecutionOutcome { bundle: Default::default(), receipts, requests, first_block, snapshots: vec![] };
 
         // Extend the ExecutionOutcome object by itself.
         exec_res.extend(exec_res.clone());
@@ -850,6 +876,7 @@ mod tests {
                 receipts: vec![vec![Some(receipt.clone())], vec![Some(receipt)]],
                 requests: vec![Requests::new(vec![request.clone()]), Requests::new(vec![request])],
                 first_block: 123,
+                snapshots: vec![],
             }
         );
     }
@@ -887,7 +914,7 @@ mod tests {
         // Create a ExecutionOutcome object with the created bundle, receipts, requests, and
         // first_block
         let exec_res =
-            ExecutionOutcome { bundle: Default::default(), receipts, requests, first_block };
+            ExecutionOutcome { bundle: Default::default(), receipts, requests, first_block, snapshots: vec![] };
 
         // Split the ExecutionOutcome at block number 124
         let result = exec_res.clone().split_at(124);
@@ -898,6 +925,7 @@ mod tests {
             receipts: vec![vec![Some(receipt.clone())]],
             requests: vec![Requests::new(vec![request.clone()])],
             first_block,
+            snapshots: vec![],
         };
 
         // Define the expected higher ExecutionOutcome after splitting
@@ -906,6 +934,7 @@ mod tests {
             receipts: vec![vec![Some(receipt.clone())], vec![Some(receipt)]],
             requests: vec![Requests::new(vec![request.clone()]), Requests::new(vec![request])],
             first_block: 124,
+            snapshots: vec![],
         };
 
         // Assert that the split result matches the expected lower and higher outcomes
@@ -966,6 +995,7 @@ mod tests {
             receipts: Default::default(),
             first_block: 0,
             requests: vec![],
+            snapshots: vec![],
         };
 
         // Get the changed accounts
