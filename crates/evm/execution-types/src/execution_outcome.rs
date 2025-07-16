@@ -153,7 +153,10 @@ impl<T> ExecutionOutcome<T> {
             value.receipts.push(result.receipts);
             value.requests.push(result.requests);
         }
-        value
+        {
+            value.snapshots = crate::snapshot_pool::drain();
+            value
+        }
     }
 
     /// Creates a new `ExecutionOutcome` that also carries snapshots (Parlia)
