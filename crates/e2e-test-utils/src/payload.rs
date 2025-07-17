@@ -56,20 +56,30 @@ impl<T: PayloadTypes> PayloadTestContext<T> {
 
     /// Wait until the best built payload is ready
     pub async fn wait_for_built_payload(&self, payload_id: PayloadId) {
+        let start_time = std::time::Instant::now();
+        let max_wait_time = std::time::Duration::from_millis(500); // Wait max 500ms for transactions
+        
         loop {
             let payload = self.payload_builder.best_payload(payload_id).await.unwrap().unwrap();
-            if payload.block().body().transactions().is_empty() {
-                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-                continue
+            
+            // If payload has transactions, it's ready
+            if !payload.block().body().transactions().is_empty() {
+                break;
             }
-            // Resolve payload once its built
-            self.payload_builder
+            
+            // If we've waited long enough, accept empty blocks (important for BSC and other chains)
+            if start_time.elapsed() >= max_wait_time {
+                break;
+            }
+            
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        // Resolve payload once its built
+        self.payload_builder
                 .resolve_kind(payload_id, PayloadKind::Earliest)
                 .await
                 .unwrap()
                 .unwrap();
-            break;
-        }
     }
 
     /// Expects the next event to be a built payload event or panics
