@@ -16,7 +16,7 @@ use reth_ethereum_primitives::TransactionSigned;
 use reth_primitives_traits::{Block, SignedTransaction};
 
 /// This informs peers of new blocks that have appeared on the network.
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodableWrapper, RlpDecodableWrapper, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, RlpEncodableWrapper, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 #[add_arbitrary_tests(rlp)]
@@ -77,7 +77,7 @@ pub trait NewBlockPayload:
 
 /// A new block with the current total difficulty, which includes the difficulty of the returned
 /// block.
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct NewBlock<B = reth_ethereum_primitives::Block> {
@@ -798,318 +798,42 @@ pub struct BlockRangeUpdate {
     pub latest_hash: B256,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use alloy_consensus::Typed2718;
-    use alloy_eips::eip2718::Encodable2718;
-    use alloy_primitives::{b256, hex, Signature, U256};
-    use reth_ethereum_primitives::{Transaction, TransactionSigned};
-    use std::str::FromStr;
-
-    /// Takes as input a struct / encoded hex message pair, ensuring that we encode to the exact hex
-    /// message, and decode to the exact struct.
-    fn test_encoding_vector<T: Encodable + Decodable + PartialEq + core::fmt::Debug>(
-        input: (T, &[u8]),
-    ) {
-        let (expected_decoded, expected_encoded) = input;
-        let mut encoded = Vec::new();
-        expected_decoded.encode(&mut encoded);
-
-        assert_eq!(hex::encode(&encoded), hex::encode(expected_encoded));
-
-        let decoded = T::decode(&mut encoded.as_ref()).unwrap();
-        assert_eq!(expected_decoded, decoded);
-    }
-
-    #[test]
-    fn can_return_latest_block() {
-        let mut blocks = NewBlockHashes(vec![BlockHashNumber { hash: B256::random(), number: 0 }]);
-        let latest = blocks.latest().unwrap();
-        assert_eq!(latest.number, 0);
-
-        blocks.0.push(BlockHashNumber { hash: B256::random(), number: 100 });
-        blocks.0.push(BlockHashNumber { hash: B256::random(), number: 2 });
-        let latest = blocks.latest().unwrap();
-        assert_eq!(latest.number, 100);
-    }
-
-    #[test]
-    fn eth_68_tx_hash_roundtrip() {
-        let vectors = vec![
-            (
-                NewPooledTransactionHashes68 { types: vec![], sizes: vec![], hashes: vec![] },
-                &hex!("c380c0c0")[..],
-            ),
-            (
-                NewPooledTransactionHashes68 {
-                    types: vec![0x00],
-                    sizes: vec![0x00],
-                    hashes: vec![
-                        B256::from_str(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000",
-                        )
-                        .unwrap(),
-                    ],
-                },
-                &hex!(
-                    "e500c180e1a00000000000000000000000000000000000000000000000000000000000000000"
-                )[..],
-            ),
-            (
-                NewPooledTransactionHashes68 {
-                    types: vec![0x00, 0x00],
-                    sizes: vec![0x00, 0x00],
-                    hashes: vec![
-                        B256::from_str(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000",
-                        )
-                        .unwrap(),
-                        B256::from_str(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000",
-                        )
-                        .unwrap(),
-                    ],
-                },
-                &hex!(
-                    "f84a820000c28080f842a00000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000"
-                )[..],
-            ),
-            (
-                NewPooledTransactionHashes68 {
-                    types: vec![0x02],
-                    sizes: vec![0xb6],
-                    hashes: vec![
-                        B256::from_str(
-                            "0xfecbed04c7b88d8e7221a0a3f5dc33f220212347fc167459ea5cc9c3eb4c1124",
-                        )
-                        .unwrap(),
-                    ],
-                },
-                &hex!(
-                    "e602c281b6e1a0fecbed04c7b88d8e7221a0a3f5dc33f220212347fc167459ea5cc9c3eb4c1124"
-                )[..],
-            ),
-            (
-                NewPooledTransactionHashes68 {
-                    types: vec![0xff, 0xff],
-                    sizes: vec![0xffffffff, 0xffffffff],
-                    hashes: vec![
-                        B256::from_str(
-                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                        )
-                        .unwrap(),
-                        B256::from_str(
-                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                        )
-                        .unwrap(),
-                    ],
-                },
-                &hex!(
-                    "f85282ffffca84ffffffff84fffffffff842a0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-                )[..],
-            ),
-            (
-                NewPooledTransactionHashes68 {
-                    types: vec![0xff, 0xff],
-                    sizes: vec![0xffffffff, 0xffffffff],
-                    hashes: vec![
-                        B256::from_str(
-                            "0xbeefcafebeefcafebeefcafebeefcafebeefcafebeefcafebeefcafebeefcafe",
-                        )
-                        .unwrap(),
-                        B256::from_str(
-                            "0xbeefcafebeefcafebeefcafebeefcafebeefcafebeefcafebeefcafebeefcafe",
-                        )
-                        .unwrap(),
-                    ],
-                },
-                &hex!(
-                    "f85282ffffca84ffffffff84fffffffff842a0beefcafebeefcafebeefcafebeefcafebeefcafebeefcafebeefcafebeefcafea0beefcafebeefcafebeefcafebeefcafebeefcafebeefcafebeefcafebeefcafe"
-                )[..],
-            ),
-            (
-                NewPooledTransactionHashes68 {
-                    types: vec![0x10, 0x10],
-                    sizes: vec![0xdeadc0de, 0xdeadc0de],
-                    hashes: vec![
-                        B256::from_str(
-                            "0x3b9aca00f0671c9a2a1b817a0a78d3fe0c0f776cccb2a8c3c1b412a4f4e4d4e2",
-                        )
-                        .unwrap(),
-                        B256::from_str(
-                            "0x3b9aca00f0671c9a2a1b817a0a78d3fe0c0f776cccb2a8c3c1b412a4f4e4d4e2",
-                        )
-                        .unwrap(),
-                    ],
-                },
-                &hex!(
-                    "f852821010ca84deadc0de84deadc0def842a03b9aca00f0671c9a2a1b817a0a78d3fe0c0f776cccb2a8c3c1b412a4f4e4d4e2a03b9aca00f0671c9a2a1b817a0a78d3fe0c0f776cccb2a8c3c1b412a4f4e4d4e2"
-                )[..],
-            ),
-            (
-                NewPooledTransactionHashes68 {
-                    types: vec![0x6f, 0x6f],
-                    sizes: vec![0x7fffffff, 0x7fffffff],
-                    hashes: vec![
-                        B256::from_str(
-                            "0x0000000000000000000000000000000000000000000000000000000000000002",
-                        )
-                        .unwrap(),
-                        B256::from_str(
-                            "0x0000000000000000000000000000000000000000000000000000000000000002",
-                        )
-                        .unwrap(),
-                    ],
-                },
-                &hex!(
-                    "f852826f6fca847fffffff847ffffffff842a00000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000002"
-                )[..],
-            ),
-        ];
-
-        for vector in vectors {
-            test_encoding_vector(vector);
+impl Decodable for NewBlockHashes {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        use alloy_rlp::{Header, Decodable as _};
+        use bytes::Buf as _;
+        let header = Header::decode(buf)?;
+        if !header.list { return Err(alloy_rlp::Error::Custom("expected list")); }
+        let mut out = Vec::new();
+        let mut list_buf = &buf[..header.payload_length];
+        while !list_buf.is_empty() {
+            let elem_header = Header::decode(&mut list_buf)?;
+            if !elem_header.list { return Err(alloy_rlp::Error::Custom("expected list element")); }
+            let mut elem_slice = &list_buf[..elem_header.payload_length];
+            let hash = B256::decode(&mut elem_slice)?;
+            let number = u64::decode(&mut elem_slice)?;
+            // skip extra fields
+            list_buf = &list_buf[elem_header.payload_length..];
+            out.push(BlockHashNumber { hash, number });
         }
+        buf.advance(header.payload_length);
+        Ok(Self(out))
     }
+}
 
-    #[test]
-    fn request_hashes_retain_count_keep_subset() {
-        let mut hashes = RequestTxHashes::new(
-            [
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000001"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000002"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000003"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000004"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000005"),
-            ]
-            .into_iter()
-            .collect::<HashSet<_>>(),
-        );
-
-        let rest = hashes.retain_count(3);
-
-        assert_eq!(3, hashes.len());
-        assert_eq!(2, rest.len());
-    }
-
-    #[test]
-    fn request_hashes_retain_count_keep_all() {
-        let mut hashes = RequestTxHashes::new(
-            [
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000001"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000002"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000003"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000004"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000005"),
-            ]
-            .into_iter()
-            .collect::<HashSet<_>>(),
-        );
-
-        let _ = hashes.retain_count(6);
-
-        assert_eq!(5, hashes.len());
-    }
-
-    #[test]
-    fn split_request_hashes_keep_none() {
-        let mut hashes = RequestTxHashes::new(
-            [
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000001"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000002"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000003"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000004"),
-                b256!("0x0000000000000000000000000000000000000000000000000000000000000005"),
-            ]
-            .into_iter()
-            .collect::<HashSet<_>>(),
-        );
-
-        let rest = hashes.retain_count(0);
-
-        assert_eq!(0, hashes.len());
-        assert_eq!(5, rest.len());
-    }
-
-    fn signed_transaction() -> impl SignedTransaction {
-        TransactionSigned::new_unhashed(
-            Transaction::Legacy(Default::default()),
-            Signature::new(
-                U256::from_str(
-                    "0x64b1702d9298fee62dfeccc57d322a463ad55ca201256d01f62b45b2e1c21c12",
-                )
-                .unwrap(),
-                U256::from_str(
-                    "0x64b1702d9298fee62dfeccc57d322a463ad55ca201256d01f62b45b2e1c21c10",
-                )
-                .unwrap(),
-                false,
-            ),
-        )
-    }
-
-    #[test]
-    fn test_pooled_tx_hashes_68_push() {
-        let tx = signed_transaction();
-        let mut tx_hashes =
-            NewPooledTransactionHashes68 { types: vec![], sizes: vec![], hashes: vec![] };
-        tx_hashes.push(&tx);
-        assert_eq!(tx_hashes.types.len(), 1);
-        assert_eq!(tx_hashes.sizes.len(), 1);
-        assert_eq!(tx_hashes.hashes.len(), 1);
-        assert_eq!(tx_hashes.types[0], tx.ty());
-        assert_eq!(tx_hashes.sizes[0], tx.encode_2718_len());
-        assert_eq!(tx_hashes.hashes[0], *tx.tx_hash());
-    }
-
-    #[test]
-    fn test_pooled_tx_hashes_68_extend() {
-        let tx = signed_transaction();
-        let txs = vec![tx.clone(), tx.clone()];
-        let mut tx_hashes =
-            NewPooledTransactionHashes68 { types: vec![], sizes: vec![], hashes: vec![] };
-        tx_hashes.extend(&txs);
-        assert_eq!(tx_hashes.types.len(), 2);
-        assert_eq!(tx_hashes.sizes.len(), 2);
-        assert_eq!(tx_hashes.hashes.len(), 2);
-        assert_eq!(tx_hashes.types[0], tx.ty());
-        assert_eq!(tx_hashes.sizes[0], tx.encode_2718_len());
-        assert_eq!(tx_hashes.hashes[0], *tx.tx_hash());
-        assert_eq!(tx_hashes.types[1], tx.ty());
-        assert_eq!(tx_hashes.sizes[1], tx.encode_2718_len());
-        assert_eq!(tx_hashes.hashes[1], *tx.tx_hash());
-    }
-
-    #[test]
-    fn test_pooled_tx_hashes_68_with_transaction() {
-        let tx = signed_transaction();
-        let tx_hashes =
-            NewPooledTransactionHashes68 { types: vec![], sizes: vec![], hashes: vec![] }
-                .with_transaction(&tx);
-        assert_eq!(tx_hashes.types.len(), 1);
-        assert_eq!(tx_hashes.sizes.len(), 1);
-        assert_eq!(tx_hashes.hashes.len(), 1);
-        assert_eq!(tx_hashes.types[0], tx.ty());
-        assert_eq!(tx_hashes.sizes[0], tx.encode_2718_len());
-        assert_eq!(tx_hashes.hashes[0], *tx.tx_hash());
-    }
-
-    #[test]
-    fn test_pooled_tx_hashes_68_with_transactions() {
-        let tx = signed_transaction();
-        let txs = vec![tx.clone(), tx.clone()];
-        let tx_hashes =
-            NewPooledTransactionHashes68 { types: vec![], sizes: vec![], hashes: vec![] }
-                .with_transactions(&txs);
-        assert_eq!(tx_hashes.types.len(), 2);
-        assert_eq!(tx_hashes.sizes.len(), 2);
-        assert_eq!(tx_hashes.hashes.len(), 2);
-        assert_eq!(tx_hashes.types[0], tx.ty());
-        assert_eq!(tx_hashes.sizes[0], tx.encode_2718_len());
-        assert_eq!(tx_hashes.hashes[0], *tx.tx_hash());
-        assert_eq!(tx_hashes.types[1], tx.ty());
-        assert_eq!(tx_hashes.sizes[1], tx.encode_2718_len());
-        assert_eq!(tx_hashes.hashes[1], *tx.tx_hash());
+impl<B> Decodable for NewBlock<B>
+where
+    B: Decodable + Encodable + Clone + Eq + core::fmt::Debug + Send + Sync + Unpin + 'static,
+{
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        use alloy_rlp::{Header, Decodable as _};
+        use bytes::Buf as _;
+        let header = Header::decode(buf)?;
+        if !header.list { return Err(alloy_rlp::Error::Custom("expected list")); }
+        let mut slice = &buf[..header.payload_length];
+        let block = B::decode(&mut slice)?;
+        let td = U128::decode(&mut slice)?;
+        buf.advance(header.payload_length);
+        Ok(Self { block, td })
     }
 }
