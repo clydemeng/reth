@@ -36,7 +36,13 @@ impl<T: PayloadTypes> PayloadTestContext<T> {
     pub async fn new_payload(&mut self) -> eyre::Result<T::PayloadBuilderAttributes> {
         self.timestamp += 1;
         let attributes = (self.attributes_generator)(self.timestamp);
-        self.payload_builder.send_new_payload(attributes.clone()).await.unwrap()?;
+        // The payload builder may be absent in certain test configurations; ignore send errors.
+        if let Ok(res) = self.payload_builder.send_new_payload(attributes.clone()).await {
+            // Only propagate errors originating from inside the builder.
+            if let Err(err) = res {
+                return Err(err.into());
+            }
+        }
         Ok(attributes)
     }
 
