@@ -35,11 +35,11 @@ reth-tasks.workspace = true
 reth-node-ethereum.workspace = true
 reth-ethereum-primitives.workspace = true
 reth-primitives-traits.workspace = true
-reth-cli-commands = { git = "https://github.com/clydemeng/reth.git", branch = "parlia-8e0ff9" }
-reth-config = { git = "https://github.com/clydemeng/reth.git", branch = "parlia-8e0ff9" }
-reth-primitives = { git = "https://github.com/clydemeng/reth.git", branch = "parlia-8e0ff9" }
-reth-db-common = { git = "https://github.com/clydemeng/reth.git", branch = "parlia-8e0ff9" }
-reth-consensus = { git = "https://github.com/clydemeng/reth.git", branch = "parlia-8e0ff9" }
+reth-cli-commands.workspace = true
+reth-config.workspace = true
+reth-primitives.workspace = true
+reth-db-common.workspace = true
+reth-consensus.workspace = true
 
 revm.workspace = true
 tempfile.workspace = true
