@@ -1,7 +1,7 @@
 use futures_util::StreamExt;
 use reth_node_api::{BlockBody, PayloadKind};
 use reth_payload_builder::{PayloadBuilderHandle, PayloadId};
-use reth_payload_builder_primitives::Events;
+use reth_payload_builder_primitives::events::{Events, PayloadEvents};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes, PayloadTypes};
 use tokio_stream::wrappers::BroadcastStream;
 
@@ -28,7 +28,7 @@ impl<T: PayloadTypes> PayloadTestContext<T> {
             _ => {
                 // Builder not available; create dummy broadcast channel
                 let (tx, _rx) = tokio::sync::broadcast::channel(16);
-                tx.subscribe()
+                reth_payload_builder_primitives::events::PayloadEvents { receiver: tx.subscribe() }
             }
         };
         let payload_event_stream = payload_events.into_stream();
