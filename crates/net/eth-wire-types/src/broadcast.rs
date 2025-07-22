@@ -324,6 +324,38 @@ impl From<Vec<B256>> for NewPooledTransactionHashes66 {
     }
 }
 
+impl Decodable for NewPooledTransactionHashes66 {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        use alloy_rlp::{Header, Decodable as _};
+        use bytes::Buf as _;
+
+        let header = Header::decode(buf)?;
+        if !header.list {
+            return Err(alloy_rlp::Error::Custom("expected list"));
+        }
+
+        let mut list_buf = &buf[..header.payload_length];
+        let mut hashes = Vec::new();
+        
+        // Decode transaction hashes
+        while !list_buf.is_empty() {
+            let hash = B256::decode(&mut list_buf)?;
+            hashes.push(hash);
+        }
+
+        // --- PATCH: tolerate BSC‐style extended payloads (extra fields) ---
+        // The buffer should be empty now, but if BSC added extra fields, advance past them
+        if !list_buf.is_empty() {
+            while !list_buf.is_empty() {
+                let extra_header = Header::decode(&mut list_buf)?;
+                list_buf.advance(extra_header.length());
+            }
+        }
+
+        Ok(Self(hashes))
+    }
+}
+
 /// Same as [`NewPooledTransactionHashes66`] but extends that beside the transaction hashes,
 /// the node sends the transaction types and their sizes (as defined in EIP-2718) as well.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
@@ -462,20 +494,65 @@ impl Encodable for NewPooledTransactionHashes68 {
 
 impl Decodable for NewPooledTransactionHashes68 {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        #[derive(RlpDecodable)]
-        struct EncodableNewPooledTransactionHashes68 {
-            types: Bytes,
-            sizes: Vec<usize>,
-            hashes: Vec<B256>,
+        use alloy_rlp::{Header, Decodable as _};
+        use bytes::Buf as _;
+
+        let header = Header::decode(buf)?;
+        if !header.list {
+            return Err(alloy_rlp::Error::Custom("expected list"));
         }
 
-        let encodable = EncodableNewPooledTransactionHashes68::decode(buf)?;
-        let msg = Self {
-            types: encodable.types.into(),
-            sizes: encodable.sizes,
-            hashes: encodable.hashes,
-        };
+        let mut list_buf = &buf[..header.payload_length];
+        
+        // Decode types (first field)
+        let types_header = Header::decode(&mut list_buf)?;
+        if !types_header.list {
+            return Err(alloy_rlp::Error::Custom("expected types list"));
+        }
+        let mut types_slice = &list_buf[..types_header.payload_length];
+        let mut types = Vec::new();
+        while !types_slice.is_empty() {
+            let type_val = u8::decode(&mut types_slice)?;
+            types.push(type_val);
+        }
+        list_buf.advance(types_header.length());
 
+        // Decode sizes (second field)
+        let sizes_header = Header::decode(&mut list_buf)?;
+        if !sizes_header.list {
+            return Err(alloy_rlp::Error::Custom("expected sizes list"));
+        }
+        let mut sizes_slice = &list_buf[..sizes_header.payload_length];
+        let mut sizes = Vec::new();
+        while !sizes_slice.is_empty() {
+            let size_val = usize::decode(&mut sizes_slice)?;
+            sizes.push(size_val);
+        }
+        list_buf.advance(sizes_header.length());
+
+        // Decode hashes (third field)
+        let hashes_header = Header::decode(&mut list_buf)?;
+        if !hashes_header.list {
+            return Err(alloy_rlp::Error::Custom("expected hashes list"));
+        }
+        let mut hashes_slice = &list_buf[..hashes_header.payload_length];
+        let mut hashes = Vec::new();
+        while !hashes_slice.is_empty() {
+            let hash = B256::decode(&mut hashes_slice)?;
+            hashes.push(hash);
+        }
+        list_buf.advance(hashes_header.length());
+
+        // --- PATCH: tolerate BSC‐style extended payloads (extra fields) ---
+        // Advance past any extra fields added by BSC
+        while !list_buf.is_empty() {
+            let extra_header = Header::decode(&mut list_buf)?;
+            list_buf.advance(extra_header.length());
+        }
+
+        let msg = Self { types, sizes, hashes };
+
+        // Validate lengths match
         if msg.hashes.len() != msg.types.len() {
             return Err(alloy_rlp::Error::ListLengthMismatch {
                 expected: msg.hashes.len(),
