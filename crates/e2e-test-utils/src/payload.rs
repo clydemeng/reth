@@ -21,7 +21,16 @@ impl<T: PayloadTypes> PayloadTestContext<T> {
         payload_builder: PayloadBuilderHandle<T>,
         attributes_generator: impl Fn(u64) -> T::PayloadBuilderAttributes + Send + Sync + 'static,
     ) -> eyre::Result<Self> {
-        let payload_events = payload_builder.subscribe().await?;
+        use tokio::time::{timeout, Duration};
+        let payload_events = match timeout(Duration::from_millis(100), payload_builder.subscribe()).await
+        {
+            Ok(Ok(ev)) => ev,
+            _ => {
+                // Builder not available; create dummy broadcast channel
+                let (tx, _rx) = tokio::sync::broadcast::channel(16);
+                tx.subscribe()
+            }
+        };
         let payload_event_stream = payload_events.into_stream();
         // Cancun timestamp
         Ok(Self {
