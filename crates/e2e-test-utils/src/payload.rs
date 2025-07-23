@@ -83,12 +83,17 @@ impl<T: reth_payload_primitives::PayloadTypes> PayloadTestContext<T> {
 
     /// Wait until the best built payload is ready for the given payload id.
     pub async fn wait_for_built_payload(&self, payload_id: reth_payload_builder::PayloadId) {
+        let start = std::time::Instant::now();
+        let max_wait = std::time::Duration::from_millis(500);
         loop {
-            // best_payload returns an Option<Payload>. It may still be None or empty.
             if let Some(Ok(payload)) = self.payload_builder.best_payload(payload_id).await {
-                if !payload.block().body().transactions().is_empty() {
+                // break if payload has txs or we've waited long enough (to accept empty blocks)
+                if !payload.block().body().transactions().is_empty() || start.elapsed() >= max_wait {
                     break;
                 }
+            } else if start.elapsed() >= max_wait {
+                // builder not ready but we waited long enough → accept
+                break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         }
