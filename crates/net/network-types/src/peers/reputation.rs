@@ -19,7 +19,9 @@ pub const FAILED_TO_CONNECT_REPUTATION_CHANGE: i32 = 25 * REPUTATION_UNIT;
 const TIMEOUT_REPUTATION_CHANGE: i32 = 4 * REPUTATION_UNIT;
 
 /// The reputation change to apply to a peer that sent a bad message.
-const BAD_MESSAGE_REPUTATION_CHANGE: i32 = 16 * REPUTATION_UNIT;
+// On BSC many peers send legacy message formats that our strict decoder marks as BadMessage.
+// Reduce the penalty so peers aren’t banned after a handful of benign mismatches.
+const BAD_MESSAGE_REPUTATION_CHANGE: i32 = 4 * REPUTATION_UNIT; // was 16 * UNIT
 
 /// The reputation change applies to a peer that has sent a transaction (full or hash) that we
 /// already know about and have already previously received from that peer.
