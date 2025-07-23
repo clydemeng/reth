@@ -484,7 +484,7 @@ impl PeersManager {
                     debug!(
                         target: "net::peers",
                         peer_id=?peer_id,
-                        const_penalty=crate::network_types::peers::reputation::BAD_MESSAGE_REPUTATION_CHANGE,
+                        const_penalty=reth_network_types::peers::reputation::BAD_MESSAGE_REPUTATION_CHANGE,
                         weight=self.reputation_weights.bad_message,
                         delta=reputation_change,
                         "Applying BadMessage reputation delta"
