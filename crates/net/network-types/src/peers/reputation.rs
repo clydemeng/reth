@@ -21,7 +21,9 @@ const TIMEOUT_REPUTATION_CHANGE: i32 = 4 * REPUTATION_UNIT;
 /// The reputation change to apply to a peer that sent a bad message.
 // On BSC many peers send legacy message formats that our strict decoder marks as BadMessage.
 // Reduce the penalty so peers aren’t banned after a handful of benign mismatches.
-const BAD_MESSAGE_REPUTATION_CHANGE: i32 = 4 * REPUTATION_UNIT; // was 16 * UNIT
+// Further lower penalty: many BSC peers send legacy frames that trip the strict decoder.
+// With a single-unit penalty they need ~50 bad messages before a ban.
+const BAD_MESSAGE_REPUTATION_CHANGE: i32 = 1 * REPUTATION_UNIT; // was 4 * UNIT
 
 /// The reputation change applies to a peer that has sent a transaction (full or hash) that we
 /// already know about and have already previously received from that peer.

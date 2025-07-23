@@ -36,7 +36,7 @@ use tokio::{
     time::{Instant, Interval},
 };
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tracing::{trace, warn};
+use tracing::{trace, warn, debug};
 
 /// Maintains the state of _all_ the peers known to the network.
 ///
@@ -479,6 +479,9 @@ impl PeersManager {
                         // this caps the reputation change to the maximum allowed for trusted peers
                         reputation_change = MAX_TRUSTED_PEER_REPUTATION_CHANGE;
                     }
+                }
+                if matches!(rep, ReputationChangeKind::BadMessage) {
+                    debug!(target: "net::peers", peer_id=?peer_id, delta=reputation_change, "Applying BadMessage reputation delta");
                 }
                 peer.apply_reputation(reputation_change, rep)
             }
