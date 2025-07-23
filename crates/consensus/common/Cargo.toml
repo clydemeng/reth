@@ -34,7 +34,6 @@ std = [
     "alloy-consensus/std",
     "alloy-eips/std",
     "reth-chainspec/std",
-    "reth-consensus/std",
     "reth-primitives-traits/std",
     "reth-ethereum-primitives/std",
     "alloy-primitives/std",
