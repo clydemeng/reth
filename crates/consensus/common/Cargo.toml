@@ -13,12 +13,14 @@ workspace = true
 [dependencies]
 # reth
 reth-chainspec.workspace = true
-reth-consensus.workspace = true
+reth-primitives-traits.workspace = true
+reth-consensus-primitives.workspace = true
+tracing.workspace = true
 
 # ethereum
-reth-primitives-traits.workspace = true
 alloy-consensus.workspace = true
 alloy-eips.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 alloy-primitives = { workspace = true, features = ["rand"] }
