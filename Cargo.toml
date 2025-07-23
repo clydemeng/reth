@@ -303,15 +303,10 @@ panic = "unwind"
 codegen-units = 16
 
 # Use the `--profile profiling` flag to show symbols in release mode.
-# e.g. `cargo build --profile profiling`
-[profile.profiling]
-inherits = "release"
-debug = "full"
-strip = "none"
-
 # Include debug info in benchmarks too.
 [profile.bench]
-inherits = "profiling"
+debug = "full"
+strip = "none"
 
 [profile.maxperf]
 inherits = "release"
@@ -337,6 +332,7 @@ reth-config = { path = "crates/config", default-features = false }
 reth-consensus = { path = "crates/consensus/consensus", default-features = false }
 reth-consensus-common = { path = "crates/consensus/common", default-features = false }
 reth-consensus-debug-client = { path = "crates/consensus/debug-client" }
+reth-consensus-primitives = { path = "crates/consensus/primitives", default-features = false }
 reth-db = { path = "crates/storage/db", default-features = false }
 reth-db-api = { path = "crates/storage/db-api" }
 reth-db-common = { path = "crates/storage/db-common" }
