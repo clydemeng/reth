@@ -174,7 +174,7 @@ impl ReputationChangeWeights {
 
 impl Default for ReputationChangeWeights {
     fn default() -> Self {
-        Self {
+        let weights = Self {
             bad_block: BAD_MESSAGE_REPUTATION_CHANGE,
             bad_transactions: BAD_MESSAGE_REPUTATION_CHANGE,
             already_seen_transactions: ALREADY_SEEN_TRANSACTION_REPUTATION_CHANGE,
@@ -184,7 +184,9 @@ impl Default for ReputationChangeWeights {
             failed_to_connect: FAILED_TO_CONNECT_REPUTATION_CHANGE,
             dropped: REMOTE_DISCONNECT_REPUTATION_CHANGE,
             bad_announcement: BAD_ANNOUNCEMENT_REPUTATION_CHANGE,
-        }
+        };
+        debug!(target: "net::peers", bad_message_penalty = BAD_MESSAGE_REPUTATION_CHANGE, "Initialized reputation weights");
+        weights
     }
 }
 
