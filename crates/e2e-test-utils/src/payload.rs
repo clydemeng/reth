@@ -71,7 +71,10 @@ impl<T: reth_payload_primitives::PayloadTypes> PayloadTestContext<T> {
         &mut self,
         attrs: T::PayloadBuilderAttributes,
     ) -> eyre::Result<()> {
-        let first_event = self.payload_event_stream.recv().await?;
+        use tokio::time::{timeout, Duration};
+        let first_event = timeout(Duration::from_secs(1), self.payload_event_stream.recv())
+            .await
+            .map_err(|_| eyre::eyre!("Timed out waiting for payload attribute event"))??;
         if let Events::Attributes(attr) = first_event {
             // Basic sanity-check that timestamp matches. Additional checks can be added as necessary.
             assert_eq!(attrs.timestamp(), attr.timestamp());
@@ -101,7 +104,10 @@ impl<T: reth_payload_primitives::PayloadTypes> PayloadTestContext<T> {
 
     /// Expects that the next event is a built payload event and returns the built payload.
     pub async fn expect_built_payload(&mut self) -> eyre::Result<T::BuiltPayload> {
-        let event = self.payload_event_stream.recv().await?;
+        use tokio::time::{timeout, Duration};
+        let event = timeout(Duration::from_secs(1), self.payload_event_stream.recv())
+            .await
+            .map_err(|_| eyre::eyre!("Timed out waiting for built payload event"))??;
         if let Events::BuiltPayload(payload) = event {
             Ok(payload)
         } else {
