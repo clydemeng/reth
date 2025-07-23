@@ -28,11 +28,9 @@ impl<T: reth_payload_primitives::PayloadTypes> PayloadTestContext<T> {
         payload_builder: reth_payload_builder::PayloadBuilderHandle<T>,
         attributes_generator: impl Fn(u64) -> T::PayloadBuilderAttributes + Send + Sync + 'static,
     ) -> eyre::Result<Self> {
-        use tokio::time::{timeout, Duration};
-        let payload_events = match timeout(Duration::from_millis(100), payload_builder.subscribe()).await
-        {
-            Ok(Ok(ev)) => ev,
-            _ => {
+        let payload_events = match payload_builder.subscribe().await {
+            Ok(ev) => ev,
+            Err(_) => {
                 // Builder not available; create dummy broadcast channel
                 let (tx, _rx) = tokio::sync::broadcast::channel(16);
                 PayloadEvents { receiver: tx.subscribe() }
