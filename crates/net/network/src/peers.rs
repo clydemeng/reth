@@ -480,6 +480,13 @@ impl PeersManager {
                         reputation_change = MAX_TRUSTED_PEER_REPUTATION_CHANGE;
                     }
                 }
+                // Clamp too-large penalties that may still be configured in legacy `reth.toml` files.
+                if matches!(rep, ReputationChangeKind::BadMessage)
+                    && reputation_change < reth_network_types::peers::reputation::BAD_MESSAGE_REPUTATION_CHANGE
+                {
+                    reputation_change = reth_network_types::peers::reputation::BAD_MESSAGE_REPUTATION_CHANGE;
+                }
+
                 if matches!(rep, ReputationChangeKind::BadMessage) {
                     debug!(
                         target: "net::peers",
