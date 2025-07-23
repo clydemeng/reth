@@ -7513,6 +7513,7 @@ dependencies = [
  "alloy-primitives",
  "rand 0.9.1",
  "reth-chainspec",
+ "reth-consensus",
  "reth-ethereum-primitives",
  "reth-primitives-traits",
  "thiserror 2.0.12",
