@@ -28,12 +28,24 @@ impl<T: reth_payload_primitives::PayloadTypes> PayloadTestContext<T> {
         payload_builder: reth_payload_builder::PayloadBuilderHandle<T>,
         attributes_generator: impl Fn(u64) -> T::PayloadBuilderAttributes + Send + Sync + 'static,
     ) -> eyre::Result<Self> {
-        let payload_events = match payload_builder.subscribe().await {
-            Ok(ev) => ev,
-            Err(_) => {
-                // Builder not available; create dummy broadcast channel
-                let (tx, _rx) = tokio::sync::broadcast::channel(16);
-                PayloadEvents { receiver: tx.subscribe() }
+        use std::time::{Duration, Instant};
+        use tokio::time::sleep;
+
+        // Retry subscribing for a short period to wait for the builder service to start.
+        let payload_events = {
+            let start = Instant::now();
+            loop {
+                match payload_builder.subscribe().await {
+                    Ok(ev) => break ev,
+                    Err(err) if start.elapsed() < Duration::from_secs(1) => {
+                        // Service not up yet, wait and retry
+                        sleep(Duration::from_millis(25)).await;
+                        continue;
+                    }
+                    Err(err) => {
+                        eyre::bail!("Failed to subscribe to payload events: {err}")
+                    }
+                }
             }
         };
         let payload_event_stream = payload_events.receiver;
