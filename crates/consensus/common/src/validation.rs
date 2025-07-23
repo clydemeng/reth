@@ -317,14 +317,20 @@ pub fn validate_against_parent_4844<H: BlockHeader>(
 
     let expected_excess_blob_gas =
         blob_params.next_block_excess_blob_gas(parent_excess_blob_gas, parent_blob_gas_used);
-    // TODO: fix this for BSC
-    // if expected_excess_blob_gas != excess_blob_gas {
-    //     return Err(ConsensusError::ExcessBlobGasDiff {
-    //         diff: GotExpected { got: excess_blob_gas, expected: expected_excess_blob_gas },
-    //         parent_excess_blob_gas,
-    //         parent_blob_gas_used,
-    //     })
-    // }
+    if expected_excess_blob_gas != excess_blob_gas {
+        tracing::debug!(
+            target: "downloaders::headers",
+            parent_excess_blob_gas = parent_excess_blob_gas,
+            parent_blob_gas_used = parent_blob_gas_used,
+            expected_excess_blob_gas = expected_excess_blob_gas,
+            "Invalid excess blob gas"
+        );
+        return Err(ConsensusError::ExcessBlobGasDiff {
+            diff: GotExpected { got: excess_blob_gas, expected: expected_excess_blob_gas },
+            parent_excess_blob_gas,
+            parent_blob_gas_used,
+        })
+    }
 
     Ok(())
 }
