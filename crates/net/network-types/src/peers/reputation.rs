@@ -185,7 +185,7 @@ impl Default for ReputationChangeWeights {
             dropped: REMOTE_DISCONNECT_REPUTATION_CHANGE,
             bad_announcement: BAD_ANNOUNCEMENT_REPUTATION_CHANGE,
         };
-        debug!(target: "net::peers", bad_message_penalty = BAD_MESSAGE_REPUTATION_CHANGE, "Initialized reputation weights");
+        tracing::debug!(target: "net::peers", bad_message_penalty = BAD_MESSAGE_REPUTATION_CHANGE, "Initialized reputation weights");
         weights
     }
 }
