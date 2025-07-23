@@ -481,7 +481,14 @@ impl PeersManager {
                     }
                 }
                 if matches!(rep, ReputationChangeKind::BadMessage) {
-                    debug!(target: "net::peers", peer_id=?peer_id, delta=reputation_change, "Applying BadMessage reputation delta");
+                    debug!(
+                        target: "net::peers",
+                        peer_id=?peer_id,
+                        const_penalty=crate::network_types::peers::reputation::BAD_MESSAGE_REPUTATION_CHANGE,
+                        weight=self.reputation_weights.bad_message,
+                        delta=reputation_change,
+                        "Applying BadMessage reputation delta"
+                    );
                 }
                 peer.apply_reputation(reputation_change, rep)
             }
