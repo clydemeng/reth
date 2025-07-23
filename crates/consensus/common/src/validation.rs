@@ -10,6 +10,7 @@ use reth_primitives_traits::{
     constants::MAXIMUM_GAS_LIMIT_BLOCK, Block, BlockBody, BlockHeader, GotExpected, SealedBlock,
     SealedHeader,
 };
+use tracing::debug;
 
 /// Gas used needs to be less than gas limit. Gas used is going to be checked after execution.
 #[inline]
