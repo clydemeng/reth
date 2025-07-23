@@ -1,24 +1,31 @@
 use futures_util::StreamExt;
-use reth_node_api::{BlockBody, PayloadKind};
-use reth_payload_builder::{PayloadBuilderHandle, PayloadId};
-use reth_payload_builder_primitives::events::{Events, PayloadEvents};
-use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes, PayloadTypes};
-use tokio_stream::wrappers::BroadcastStream;
+use reth_payload_builder_primitives::{Events, PayloadEvents};
+use reth_primitives::NodePrimitives;
+use reth_provider::test_utils::NoopProvider;
+// Note: Depending on the chain type we might use different RPC payload attribute types (Ethereum, Optimism, etc.)
+// Importing the generic engine payload attributes for completeness, even though it's not used directly in this file.
+use alloy_rpc_types_engine::PayloadAttributes;
+use reth_payload_primitives::{PayloadBuilderAttributes, PayloadTypes};
+use reth_payload_primitives::BuiltPayload;
+use reth_primitives_traits::BlockBody as _;
+use tokio_stream::StreamExt as _;
+use std::sync::Arc;
+use tokio::sync::broadcast;
 
 /// Helper for payload operations
 #[derive(derive_more::Debug)]
-pub struct PayloadTestContext<T: PayloadTypes> {
-    pub payload_event_stream: BroadcastStream<Events<T>>,
-    payload_builder: PayloadBuilderHandle<T>,
+pub struct PayloadTestContext<T: reth_payload_primitives::PayloadTypes> {
+    pub payload_event_stream: broadcast::Receiver<Events<T>>,
+    payload_builder: reth_payload_builder::PayloadBuilderHandle<T>,
     pub timestamp: u64,
     #[debug(skip)]
     attributes_generator: Box<dyn Fn(u64) -> T::PayloadBuilderAttributes + Send + Sync>,
 }
 
-impl<T: PayloadTypes> PayloadTestContext<T> {
+impl<T: reth_payload_primitives::PayloadTypes> PayloadTestContext<T> {
     /// Creates a new payload helper
     pub async fn new(
-        payload_builder: PayloadBuilderHandle<T>,
+        payload_builder: reth_payload_builder::PayloadBuilderHandle<T>,
         attributes_generator: impl Fn(u64) -> T::PayloadBuilderAttributes + Send + Sync + 'static,
     ) -> eyre::Result<Self> {
         use tokio::time::{timeout, Duration};
@@ -28,23 +35,26 @@ impl<T: PayloadTypes> PayloadTestContext<T> {
             _ => {
                 // Builder not available; create dummy broadcast channel
                 let (tx, _rx) = tokio::sync::broadcast::channel(16);
-                reth_payload_builder_primitives::events::PayloadEvents { receiver: tx.subscribe() }
+                PayloadEvents { receiver: tx.subscribe() }
             }
         };
-        let payload_event_stream = payload_events.into_stream();
-        // Cancun timestamp
+        let payload_event_stream = payload_events.receiver;
+
         Ok(Self {
             payload_event_stream,
             payload_builder,
-            timestamp: 1710338135,
+            timestamp: 0,
             attributes_generator: Box::new(attributes_generator),
         })
     }
 
-    /// Creates a new payload job from static attributes
+    /// Creates a new payload with the given timestamp
     pub async fn new_payload(&mut self) -> eyre::Result<T::PayloadBuilderAttributes> {
+        // increment timestamp first so that subsequent calls get unique timestamps
         self.timestamp += 1;
+
         let attributes = (self.attributes_generator)(self.timestamp);
+
         // The payload builder may be absent in certain test configurations; ignore send errors.
         if let Ok(res) = self.payload_builder.send_new_payload(attributes.clone()).await {
             // Only propagate errors originating from inside the builder.
@@ -52,58 +62,45 @@ impl<T: PayloadTypes> PayloadTestContext<T> {
                 return Err(err.into());
             }
         }
+
         Ok(attributes)
     }
 
-    /// Asserts that the next event is a payload attributes event
+    /// Asserts that the next event is a payload attributes event matching the provided attributes.
     pub async fn expect_attr_event(
         &mut self,
         attrs: T::PayloadBuilderAttributes,
     ) -> eyre::Result<()> {
-        let first_event = self.payload_event_stream.next().await.unwrap()?;
+        let first_event = self.payload_event_stream.recv().await?;
         if let Events::Attributes(attr) = first_event {
+            // Basic sanity-check that timestamp matches. Additional checks can be added as necessary.
             assert_eq!(attrs.timestamp(), attr.timestamp());
+            Ok(())
         } else {
-            panic!("Expect first event as payload attributes.")
+            eyre::bail!("Expected first event to be payload attributes, got {:?}", first_event);
         }
-        Ok(())
     }
 
-    /// Wait until the best built payload is ready
-    pub async fn wait_for_built_payload(&self, payload_id: PayloadId) {
-        let start_time = std::time::Instant::now();
-        let max_wait_time = std::time::Duration::from_millis(500); // Wait max 500ms for transactions
-        
+    /// Wait until the best built payload is ready for the given payload id.
+    pub async fn wait_for_built_payload(&self, payload_id: reth_payload_builder::PayloadId) {
         loop {
-            let payload = self.payload_builder.best_payload(payload_id).await.unwrap().unwrap();
-            
-            // If payload has transactions, it's ready
-            if !payload.block().body().transactions().is_empty() {
-                break;
+            // best_payload returns an Option<Payload>. It may still be None or empty.
+            if let Some(Ok(payload)) = self.payload_builder.best_payload(payload_id).await {
+                if !payload.block().body().transactions().is_empty() {
+                    break;
+                }
             }
-            
-            // If we've waited long enough, accept empty blocks (important for BSC and other chains)
-            if start_time.elapsed() >= max_wait_time {
-                break;
-            }
-            
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         }
-        // Resolve payload once its built
-        self.payload_builder
-                .resolve_kind(payload_id, PayloadKind::Earliest)
-                .await
-                .unwrap()
-                .unwrap();
     }
 
-    /// Expects the next event to be a built payload event or panics
+    /// Expects that the next event is a built payload event and returns the built payload.
     pub async fn expect_built_payload(&mut self) -> eyre::Result<T::BuiltPayload> {
-        let second_event = self.payload_event_stream.next().await.unwrap()?;
-        if let Events::BuiltPayload(payload) = second_event {
+        let event = self.payload_event_stream.recv().await?;
+        if let Events::BuiltPayload(payload) = event {
             Ok(payload)
         } else {
-            panic!("Expect a built payload event.");
+            eyre::bail!("Expected built payload event, got {:?}", event);
         }
     }
 }
