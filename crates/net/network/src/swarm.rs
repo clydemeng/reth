@@ -260,10 +260,9 @@ impl<N: NetworkPrimitives> Swarm<N> {
                     // Normal path: fork-id matches according to EIP-2124 rules.
                     self.state_mut().peers_mut().set_discovered_fork_id(peer_id, fork_id);
                 } else {
-                    // BSC network: vast majority of nodes broadcast outdated fork-ids.
-                    // Instead of dropping them, accept the peer and just log the mismatch.
-                    debug!(target: "net", ?peer_id, remote_fork_id=?fork_id, our_fork_id=?self.sessions.fork_id(), "fork id mismatch, accepting peer (relaxed mode)");
-                    self.state_mut().peers_mut().set_discovered_fork_id(peer_id, fork_id);
+                    // Strict fork ID validation - drop peers with mismatched fork IDs
+                    debug!(target: "net", ?peer_id, remote_fork_id=?fork_id, our_fork_id=?self.sessions.fork_id(), "fork id mismatch, removing peer");
+                    // Don't add the peer - just log and ignore
                 }
             }
         }
