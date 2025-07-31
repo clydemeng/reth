@@ -261,7 +261,12 @@ impl<N: NetworkPrimitives> Swarm<N> {
                     self.state_mut().peers_mut().set_discovered_fork_id(peer_id, fork_id);
                 } else {
                     // Strict fork ID validation - drop peers with mismatched fork IDs
-                    debug!(target: "net", ?peer_id, remote_fork_id=?fork_id, our_fork_id=?self.sessions.fork_id(), "fork id mismatch, removing peer");
+                    debug!(target: "net", 
+                        ?peer_id, 
+                        remote_fork_id=?fork_id, 
+                        our_fork_id=?self.sessions.fork_id(),
+                        "fork id mismatch, removing peer"
+                    );
                     // Don't add the peer - just log and ignore
                 }
             }

@@ -22,6 +22,7 @@ use reth_storage_api::{noop::NoopProvider, BlockNumReader, BlockReader, HeaderPr
 use reth_tasks::{TaskSpawner, TokioTaskExecutor};
 use secp256k1::SECP256K1;
 use std::{collections::HashSet, net::SocketAddr, sync::Arc};
+use tracing::debug;
 
 // re-export for convenience
 use crate::protocol::{IntoRlpxSubProtocol, RlpxSubProtocols};
@@ -627,6 +628,15 @@ impl<N: NetworkPrimitives> NetworkConfigBuilder<N> {
 
         // set a fork filter based on the chain spec and head
         let fork_filter = chain_spec.fork_filter(head);
+        
+        // Debug logging for fork ID calculation
+        let fork_id = chain_spec.fork_id(&head);
+        debug!(target: "net::config", 
+            ?head,
+            ?fork_id,
+            chain_spec_name=?chain_spec.chain(),
+            "created fork filter for network config"
+        );
 
         // get the chain id
         let chain_id = chain_spec.chain().id();
