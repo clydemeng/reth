@@ -638,7 +638,7 @@ impl<N: NetworkPrimitives> NetworkConfigBuilder<N> {
         // Debug logging for status details
         debug!(target: "net::config", 
             status_fork_id=?status.forkid,
-            status_chain_id=?status.chain,
+            status_chain=?status.chain,
             status_genesis=?status.genesis,
             "created unified status"
         );
