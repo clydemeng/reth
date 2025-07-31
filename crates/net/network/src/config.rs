@@ -578,6 +578,15 @@ impl<N: NetworkPrimitives> NetworkConfigBuilder<N> {
     {
         let peer_id = self.get_peer_id();
         let chain_spec = client.chain_spec();
+        
+        // Debug logging for chain spec details
+        debug!(target: "net::config", 
+            chain_spec_name=?chain_spec.chain(),
+            chain_id=?chain_spec.chain().id(),
+            genesis_hash=?chain_spec.genesis_hash(),
+            "building network config with chain spec"
+        );
+        
         let Self {
             secret_key,
             mut dns_discovery_config,
@@ -625,6 +634,14 @@ impl<N: NetworkPrimitives> NetworkConfigBuilder<N> {
 
         // set the status
         let status = UnifiedStatus::spec_builder(&chain_spec, &head);
+        
+        // Debug logging for status details
+        debug!(target: "net::config", 
+            status_fork_id=?status.forkid,
+            status_chain_id=?status.chain,
+            status_genesis=?status.genesis,
+            "created unified status"
+        );
 
         // set a fork filter based on the chain spec and head
         let fork_filter = chain_spec.fork_filter(head);
@@ -635,6 +652,7 @@ impl<N: NetworkPrimitives> NetworkConfigBuilder<N> {
             ?head,
             ?fork_id,
             chain_spec_name=?chain_spec.chain(),
+            chain_id=?chain_spec.chain().id(),
             "created fork filter for network config"
         );
 

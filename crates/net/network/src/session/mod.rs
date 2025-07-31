@@ -140,6 +140,7 @@ impl<N: NetworkPrimitives> SessionManager<N> {
         debug!(target: "net::session", 
             fork_id=?fork_filter.current(),
             status_fork_id=?status.forkid,
+            chain_id=?status.chain_id,
             "creating session manager with fork filter"
         );
         
