@@ -236,7 +236,15 @@ impl<N: NetworkPrimitives> PeersInfo for NetworkHandle<N> {
         } else if let Some(record) = self.inner.discv5.as_ref().and_then(|d| d.node_record()) {
             record
         } else {
-            let external_ip = self.inner.nat.and_then(|nat| nat.as_external_ip());
+            // Fix: Use proper NAT resolver to get external IP (support extip:127.0.0.1)
+            let external_ip = self.inner.nat.and_then(|nat| {
+                match nat {
+                    // For explicit external IP (extip:127.0.0.1), return it directly
+                    reth_discv4::NatResolver::ExternalIp(ip) => Some(ip),
+                    // For other resolvers, use the immediate variant if available
+                    _ => nat.as_external_ip(),
+                }
+            });
 
             let mut socket_addr = *self.inner.listener_address.lock();
             if let Some(ip) = external_ip {
