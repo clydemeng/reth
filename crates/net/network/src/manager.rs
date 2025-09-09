@@ -272,6 +272,8 @@ impl<N: NetworkPrimitives> NetworkManager<N> {
             // add the forkid entry for EIP-868, but wrap it in an `EnrForkIdEntry` for proper
             // encoding
             disc_config.add_eip868_pair("eth", EnrForkIdEntry::from(status.forkid));
+            // Fix: Pass NAT resolver config to discv4 for external IP resolution
+            disc_config.external_ip_resolver = nat;
         }
 
         if let Some(discv5) = discovery_v5_config.as_mut() {
