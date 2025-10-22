@@ -1,0 +1,12 @@
+[package]
+name = "evm-baseline-erc20"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eyre = { version = "0.6" }
+revm = { workspace = true, default-features = false }
+revm-primitives = { workspace = true, default-features = false }
+revm-interpreter = { workspace = true, default-features = false }
+
+

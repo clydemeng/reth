@@ -168,6 +168,7 @@ members = [
     "examples/polygon-p2p/",
     "examples/rpc-db/",
     "examples/precompile-cache/",
+    "examples/evm-baseline-erc20/",
     "examples/txpool-tracing/",
     "examples/custom-beacon-withdrawals",
     "testing/ef-tests/",
